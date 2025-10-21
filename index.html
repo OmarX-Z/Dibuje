@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dibuja con Estilo 🖌️</title>
+
+  <!-- PWA manifest & theme -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <style>
+    body {
+      margin: 0;
+      background-color: #fff;
+      color: #000;
+      font-family: "Poppins", sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      touch-action: none;
+    }
+
+    header {
+      background: #000;
+      color: #fff;
+      width: 100%;
+      text-align: center;
+      padding: 10px 0;
+      font-size: 1.2rem;
+      letter-spacing: 1px;
+    }
+
+    #toolbar {
+      margin: 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button, input[type="color"], input[type="file"], select, input[type="range"] {
+      padding: 8px 12px;
+      border: 1px solid #000;
+      background: #fff;
+      color: #000;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+
+    button:hover, select:hover, input[type="file"]:hover {
+      background: #000;
+      color: #fff;
+    }
+
+    #color-palette {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      justify-content: center;
+      max-width: 300px;
+    }
+
+    .color-btn {
+      width: 25px;
+      height: 25px;
+      border-radius: 50%;
+      border: 2px solid #000;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .color-btn:hover {
+      transform: scale(1.1);
+    }
+
+    #canvas-container {
+      position: relative;
+      border: 2px solid #000;
+      background: #fff;
+      touch-action: none;
+      width: calc(100% - 40px);
+      max-width: 900px;
+      margin: 10px;
+    }
+
+    canvas {
+      cursor: crosshair;
+      touch-action: none;
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    footer {
+      margin-top: 10px;
+      font-size: 1rem;
+      color: #000;
+    }
+
+    /* small screens */
+    @media (max-width:600px){
+      header { font-size: 1rem; }
+      button, input[type="color"], select { font-size: 0.85rem; padding: 7px; }
+    }
+  </style>
+</head>
+<body>
+  <header>🎨 Dibuja con Estilo – Creado por <b>Omar Ortiz</b></header>
+
+  <div id="toolbar">
+    <button id="pencil">✏️ Pincel</button>
+    <button id="eraser">🩹 Borrador</button>
+    <select id="shapeTool">
+      <option value="none">Sin forma</option>
+      <option value="line">Línea</option>
+      <option value="rect">Rectángulo</option>
+      <option value="circle">Círculo</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:8px;">
+      Grosor:
+      <input type="range" id="size" min="1" max="50" value="5" />
+    </label>
+    <input type="color" id="customColor" value="#000000" title="Color personalizado">
+    <input type="file" id="upload" accept="image/*" />
+    <button id="clear">🧹 Limpiar</button>
+    <button id="download">💾 Descargar</button>
+    <button id="share">📤 WhatsApp</button>
+  </div>
+
+  <div id="color-palette">
+    <div class="color-btn" style="background:#000000" data-color="#000000"></div>
+    <div class="color-btn" style="background:#ffffff" data-color="#ffffff"></div>
+    <div class="color-btn" style="background:#ff0000" data-color="#ff0000"></div>
+    <div class="color-btn" style="background:#ff7f00" data-color="#ff7f00"></div>
+    <div class="color-btn" style="background:#ffff00" data-color="#ffff00"></div>
+    <div class="color-btn" style="background:#00ff00" data-color="#00ff00"></div>
+    <div class="color-btn" style="background:#00ffff" data-color="#00ffff"></div>
+    <div class="color-btn" style="background:#0000ff" data-color="#0000ff"></div>
+    <div class="color-btn" style="background:#8b00ff" data-color="#8b00ff"></div>
+    <div class="color-btn" style="background:#ff1493" data-color="#ff1493"></div>
+    <div class="color-btn" style="background:#a0522d" data-color="#a0522d"></div>
+    <div class="color-btn" style="background:#808080" data-color="#808080"></div>
+  </div>
+
+  <div id="canvas-container">
+    <!-- canvas real size: 1200x700 (will scale on screen) -->
+    <canvas id="canvas" width="1200" height="700"></canvas>
+  </div>
+
+  <footer>© 2025 Creado por Omar Ortiz</footer>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const pencilBtn = document.getElementById("pencil");
+    const eraserBtn = document.getElementById("eraser");
+    const clearBtn = document.getElementById("clear");
+    const sizeInput = document.getElementById("size");
+    const upload = document.getElementById("upload");
+    const downloadBtn = document.getElementById("download");
+    const shareBtn = document.getElementById("share");
+    const customColor = document.getElementById("customColor");
+    const colorBtns = document.querySelectorAll(".color-btn");
+    const shapeTool = document.getElementById("shapeTool");
+
+    // for responsive drawing scale
+    function fitCanvasToContainer() {
+      const container = document.getElementById("canvas-container");
+      const rect = container.getBoundingClientRect();
+      const ratio = canvas.width / canvas.height;
+      // set displayed width to container width minus borders
+      canvas.style.width = (rect.width) + "px";
+      canvas.style.height = (rect.width / ratio) + "px";
+    }
+    window.addEventListener("resize", fitCanvasToContainer);
+    fitCanvasToContainer();
+
+    let drawing = false;
+    let tool = "pencil";
+    let color = "#000000";
+    let size = 5;
+    let shape = "none";
+    let startX, startY, snapshot;
+
+    pencilBtn.onclick = () => { tool = "pencil"; shape = "none"; shapeTool.value = "none"; };
+    eraserBtn.onclick = () => { tool = "eraser"; shape = "none"; shapeTool.value = "none"; };
+    sizeInput.oninput = (e) => (size = e.target.value);
+    customColor.oninput = (e) => (color = e.target.value);
+    colorBtns.forEach(btn => btn.addEventListener("click", () => color = btn.dataset.color));
+    shapeTool.onchange = (e) => shape = e.target.value;
+    clearBtn.onclick = () => { ctx.clearRect(0, 0, canvas.width, canvas.height); };
+
+    function startDrawing(x, y) {
+      drawing = true;
+      // convert screen coords to canvas internal coords
+      const scaleX = canvas.width / canvas.getBoundingClientRect().width;
+      const scaleY = canvas.height / canvas.getBoundingClientRect().height;
+      startX = x * scaleX;
+      startY = y * scaleY;
+      snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      if (tool === "pencil" && shape === "none") {
+        ctx.lineWidth = size;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+      }
+    }
+
+    function stopDrawing() {
+      drawing = false;
+      ctx.beginPath();
+    }
+
+    function drawMove(x, y) {
+      if (!drawing) return;
+      const scaleX = canvas.width / canvas.getBoundingClientRect().width;
+      const scaleY = canvas.height / canvas.getBoundingClientRect().height;
+      const cx = x * scaleX;
+      const cy = y * scaleY;
+
+      ctx.lineWidth = size;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = tool === "eraser" ? "#ffffff" : color;
+      ctx.fillStyle = ctx.strokeStyle;
+
+      if (shape === "none" && tool === "pencil") {
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+      } else if (shape !== "none") {
+        ctx.putImageData(snapshot, 0, 0);
+        if (shape === "line") drawLine(startX, startY, cx, cy);
+        if (shape === "rect") drawRect(startX, startY, cx, cy);
+        if (shape === "circle") drawCircle(startX, startY, cx, cy);
+      } else if (tool === "eraser") {
+        ctx.lineTo(cx, cy);
+        ctx.stroke();
+      }
+    }
+
+    function drawLine(x1, y1, x2, y2) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    function drawRect(x1, y1, x2, y2) {
+      ctx.beginPath();
+      ctx.rect(x1, y1, x2 - x1, y2 - y1);
+      ctx.stroke();
+    }
+
+    function drawCircle(x1, y1, x2, y2) {
+      const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+      ctx.beginPath();
+      ctx.arc(x1, y1, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Mouse events
+    canvas.addEventListener("mousedown", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      startDrawing(e.clientX - rect.left, e.clientY - rect.top);
+    });
+    canvas.addEventListener("mouseup", stopDrawing);
+    canvas.addEventListener("mouseout", stopDrawing);
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      drawMove(e.clientX - rect.left, e.clientY - rect.top);
+    });
+
+    // Touch events
+    canvas.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      startDrawing(touch.clientX - rect.left, touch.clientY - rect.top);
+    });
+    canvas.addEventListener("touchend", stopDrawing);
+    canvas.addEventListener("touchmove", (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      drawMove(touch.clientX - rect.left, touch.clientY - rect.top);
+    });
+
+    // Upload image
+    upload.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          // draw with aspect fit
+          const ratio = Math.min(canvas.width / img.width, canvas.height / img.height);
+          const w = img.width * ratio;
+          const h = img.height * ratio;
+          const x = (canvas.width - w) / 2;
+          const y = (canvas.height - h) / 2;
+          ctx.drawImage(img, x, y, w, h);
+        };
+        img.src = event.target.result;
+      };
+      if (file) reader.readAsDataURL(file);
+    });
+
+    // Download
+    downloadBtn.onclick = () => {
+      const link = document.createElement("a");
+      link.download = "dibujo_omar_ortiz.png";
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+
+    // Share to WhatsApp (opens new tab with image data as text)
+    shareBtn.onclick = () => {
+      const imageData = canvas.toDataURL();
+      const whatsappUrl = `https://api.whatsapp.com/send?text=Mira%20mi%20dibujo!%20${encodeURIComponent(imageData)}`;
+      window.open(whatsappUrl, "_blank");
+    };
+
+    // ensure initial fit
+    fitCanvasToContainer();
+
+    // === Service Worker registration & PWA install prompt handling ===
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker registrado', reg))
+        .catch(err => console.log('Error registrando Service Worker', err));
+    }
+
+    // optional: show install prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      // you can show a custom "Install" button; for simplicity we'll log:
+      console.log('App install prompt available');
+      // Example: if you had an "install" button, you could show it now and call deferredPrompt.prompt()
+    });
+  </script>
+</body>
+<style>html{
+ color:darkviolet;
+ font-size:25px;
+ font-weight:600;
+}
+</style><script>/*Here write your javascript code*/</script></html>
